@@ -1,5 +1,4 @@
 customtkinter~=5.2.2
-aes-pkcs5==1.0.3
 boto3==1.35.36
 botocore==1.35.36
 cffi==1.17.1
