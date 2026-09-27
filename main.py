@@ -21,7 +21,7 @@ class App(CTk):
         self.current_user = Users()
         self.current_receiver: Users = Users()
         self.current_messages: list[Messages] = []
-        self.current_key: str = ''
+        self.current_key: bytes = b''
         self.current_encrypted = True
 
         # Configurações dos widgets
@@ -67,7 +67,7 @@ class App(CTk):
     def quit_chat(self):
         self.current_receiver = Users()
         self.current_messages: list[Messages] = []
-        self.current_key: str = ''
+        self.current_key: bytes = b''
         self.current_encrypted = True
         self.frame_menager(3)
 
@@ -83,20 +83,23 @@ class App(CTk):
                   hover_color='#a31414', command=lambda :error.destroy()).pack()
         error.mainloop()
 
-    def decrypt_message(self, message: Messages, key: str):
-        try:
-            message.decrypt_content(key=key)
-        except Exception as e:
-            self.error_popup(str(e))
-
-    def decrypt_conversation(self, key: str):
+    def decrypt_conversation(self, passphrase: str):
         if self.current_encrypted is False:
             self.error_popup("As mensagens já estão desincriptadas!")
             return
-        if key.isspace() or key == '':
+        if passphrase.isspace() or passphrase == '':
             return
-        for message in self.current_messages:
-            self.decrypt_message(message, key)
+        try:
+            salt = self.mongo.get_conversation_salt(self.current_user, self.current_receiver)
+            key = Messages.derive_key(passphrase, salt)
+            # Decifra tudo antes de mostrar: se uma mensagem falhar, a conversa continua cifrada.
+            decrypted = [message.decrypted_content(key) for message in self.current_messages]
+        except Exception as e:
+            self.error_popup(str(e))
+            return
+        for message, content in zip(self.current_messages, decrypted):
+            message.set_content(content)
+            message.encrypted = False
         self.current_encrypted = False
         self.current_key = key
         self.frame_menager(4)
